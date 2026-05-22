@@ -61,6 +61,12 @@ class RecomendadorCursos:
             temperature=0.4
         )
         texto = respuesta.choices[0].message.content
+        texto = texto.strip()
+        if texto.startswith("```"):
+            texto = texto.split("```")[1]
+            if texto.startswith("json"):
+                texto = texto[4:]
+        texto = texto.strip()
         self.cursos_mostrados.append(texto)
         try:
             return {"respuesta": json.loads(texto)}
@@ -102,3 +108,5 @@ def recomendar(datos: DatosUsuario):
     Meta final: {datos.meta}
     """
     return recomendador.generarRecomendaciones(informacionUsuario)
+
+
