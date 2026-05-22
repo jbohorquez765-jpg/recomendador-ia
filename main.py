@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 import os
 from groq import Groq
 
@@ -9,6 +10,13 @@ import json
 
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # CORS PARA FRONTEND
@@ -130,7 +138,7 @@ class RecomendadorCursos:
                 }
             ],
 
-            temperature=0.7
+            temperature=0.4
         )
 
         texto = (
@@ -140,7 +148,22 @@ class RecomendadorCursos:
 
         self.cursos_mostrados.append(texto)
 
-        return texto
+        return {
+    "respuesta": [
+        {
+            "nombre": "Cursos recomendados",
+            "plataforma": "IA",
+            "link": "#",
+            "precio": "Variable",
+            "nivel": "Personalizado",
+            "descripcion": texto,
+            "aprendizaje": "Tecnologías modernas",
+            "motivo": "Recomendado según el perfil del usuario",
+            "thumbnail": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+            "video": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+        }
+    ]
+}
 
 
 # INSTANCIA
