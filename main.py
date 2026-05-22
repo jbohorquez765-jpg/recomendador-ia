@@ -1,25 +1,13 @@
-from fastapi.middleware.cors import CORSMiddleware
-import os
-from groq import Groq
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
+from groq import Groq
+import os
 import json
 
-
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-
-# CORS PARA FRONTEND
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +19,6 @@ app.add_middleware(
 
 # MODELO DE DATOS
 class DatosUsuario(BaseModel):
-
     area: str
     objetivo: str
     nivel: str
@@ -48,9 +35,9 @@ class DatosUsuario(BaseModel):
 class RecomendadorCursos:
 
     def __init__(self):
-
+        # ✅ FIX: el cliente se crea AQUÍ dentro, no afuera con self
         self.client = Groq(
-            api_key="TU_API_KEY_AQUI"
+            api_key=os.getenv("GROQ_API_KEY")
         )
 
         self.cursos_mostrados = []
@@ -88,34 +75,13 @@ class RecomendadorCursos:
         - NO inventes links falsos.
         - TODOS los cursos deben tener thumbnail y video.
 
-        EJEMPLO EXACTO:
-
-        [
-          {
-            "nombre": "Python para Principiantes",
-            "plataforma": "YouTube",
-            "link": "https://www.youtube.com/watch?v=rfscVS0vtbw",
-            "precio": "Gratis",
-            "nivel": "Principiante",
-            "descripcion": "Curso completo de Python desde cero.",
-            "aprendizaje": "Variables, funciones y proyectos.",
-            "motivo": "Perfecto para comenzar programación.",
-            "thumbnail": "https://img.youtube.com/vi/rfscVS0vtbw/maxresdefault.jpg",
-            "video": "https://www.youtube.com/watch?v=rfscVS0vtbw"
-          }
-        ]
-
         RESPONDE SOLO JSON.
         """
 
-    def generarRecomendaciones(
-        self,
-        informacionUsuario
-    ):
+    def generarRecomendaciones(self, informacionUsuario):
 
+        # ✅ FIX: prompt_completo solo lleva la info del usuario, no el system prompt de nuevo
         prompt_completo = f"""
-        {self.prompt_sistema}
-
         INFORMACIÓN DEL USUARIO:
         {informacionUsuario}
 
@@ -124,9 +90,7 @@ class RecomendadorCursos:
         """
 
         respuesta = self.client.chat.completions.create(
-
             model="llama-3.3-70b-versatile",
-
             messages=[
                 {
                     "role": "system",
@@ -137,33 +101,36 @@ class RecomendadorCursos:
                     "content": prompt_completo
                 }
             ],
-
             temperature=0.4
         )
 
-        texto = (
-            respuesta.choices[0]
-            .message.content
-        )
+        texto = respuesta.choices[0].message.content
 
         self.cursos_mostrados.append(texto)
 
-        return {
-    "respuesta": [
-        {
-            "nombre": "Cursos recomendados",
-            "plataforma": "IA",
-            "link": "#",
-            "precio": "Variable",
-            "nivel": "Personalizado",
-            "descripcion": texto,
-            "aprendizaje": "Tecnologías modernas",
-            "motivo": "Recomendado según el perfil del usuario",
-            "thumbnail": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
-            "video": "https://www.youtube.com/embed/dQw4w9WgXcQ"
-        }
-    ]
-}
+        try:
+            recomendaciones_json = json.loads(texto)
+            return {"respuesta": recomendaciones_json}
+
+        except Exception as e:
+            print("ERROR JSON:", e)
+            print(texto)
+            return {
+                "respuesta": [
+                    {
+                        "nombre": "Error generando cursos",
+                        "plataforma": "Sistema",
+                        "link": "#",
+                        "precio": "Gratis",
+                        "nivel": "Todos",
+                        "descripcion": texto,
+                        "aprendizaje": "Error procesando respuesta",
+                        "motivo": "La IA devolvió un formato inválido",
+                        "thumbnail": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+                        "video": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                    }
+                ]
+            }
 
 
 # INSTANCIA
@@ -173,10 +140,7 @@ recomendador = RecomendadorCursos()
 # RUTA PRINCIPAL
 @app.get("/")
 def inicio():
-
-    return {
-        "mensaje": "API funcionando 😎"
-    }
+    return {"mensaje": "API funcionando 😎"}
 
 
 # ENDPOINT PRINCIPAL
@@ -185,46 +149,17 @@ def recomendar(datos: DatosUsuario):
 
     informacionUsuario = f"""
     Área de interés: {datos.area}
-
     Objetivo principal: {datos.objetivo}
-
     Nivel actual: {datos.nivel}
-
     Tecnologías favoritas: {datos.tecnologias}
-
     Idioma preferido: {datos.idioma}
-
     Presupuesto: {datos.presupuesto}
-
     Tiempo disponible: {datos.tiempo}
-
     Tipo de aprendizaje: {datos.aprendizaje}
-
     Proyecto deseado: {datos.proyecto}
-
     Meta final: {datos.meta}
     """
 
-    recomendaciones = (
-        recomendador.generarRecomendaciones(
-            informacionUsuario
-        )
-    )
+    recomendaciones = recomendador.generarRecomendaciones(informacionUsuario)
 
-    try:
-
-        recomendaciones_json = json.loads(
-            recomendaciones
-        )
-
-        return {
-            "respuesta": recomendaciones_json
-        }
-
-    except Exception as e:
-
-        print(e)
-
-        return {
-            "respuesta": []
-        }
+    return recomendaciones
