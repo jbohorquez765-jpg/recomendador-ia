@@ -1,4 +1,5 @@
-fastapi
+﻿fastapi
 uvicorn
 groq
-python-dotenvduckduckgo-search
+python-dotenv
+duckduckgo-search
